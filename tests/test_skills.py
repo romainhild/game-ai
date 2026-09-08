@@ -1,6 +1,5 @@
-from battle_core.skills import heal_amount, magic_damage, physical_damage
-
 from battle_core import SKILLS, Character, TargetKind
+from battle_core.skills import heal_amount, magic_damage, physical_damage
 
 BASE = {
     "name": "X",

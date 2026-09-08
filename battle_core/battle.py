@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from battle_core.entities import Character
-from battle_core.skills import Skill
+from battle_core.skills import SKILLS, Skill, TargetKind, heal_amount, magic_damage, physical_damage
 
 
 @dataclass
@@ -94,3 +94,92 @@ class BattleState:
     def _advance(self, actor: Character) -> None:
         if self._queue and self._queue[0] is actor:
             self._queue.pop(0)
+
+    def legal_actions(self, actor: Character) -> list[Action]:
+        actions = []
+        for skill in (s for s in SKILLS.values() if s.mp_cost <= actor.mp):
+            if skill.target_kind is TargetKind.ALL_ENEMIES or skill.target_kind is TargetKind.SELF:
+                actions.append(Action(actor=actor, skill=skill, target=None))
+            elif skill.target_kind is TargetKind.ONE_ENEMY:
+                for c in self.enemies_of(actor):
+                    actions.append(Action(actor=actor, skill=skill, target=c))
+            elif skill.target_kind is TargetKind.ONE_ALLY:
+                for c in self.allies_of(actor):
+                    actions.append(Action(actor=actor, skill=skill, target=c))
+        return actions
+
+    def step(self, action) -> list[Event]:
+        assert action.actor is self.current_actor()
+        alives = {id(c): c.alive for c in self.all_chars}
+        events = self._tick_statuses(action.actor)
+
+        if action.actor.alive:
+            events += self._apply_skill(action)
+
+        for c in self.all_chars:
+            if alives[id(c)] and not c.alive:
+                events.append(Faint(c))
+
+        self._queue = [c for c in self._queue if c.alive]
+        self._advance(action.actor)
+        self.turn += 1
+
+        return events
+
+    def _apply_skill(self, action) -> list[Event]:
+        events = []
+        action.actor.spend_mp(action.skill.mp_cost)
+
+        victims = []
+        if action.target is None:
+            if action.skill.target_kind == TargetKind.ALL_ENEMIES:
+                victims = self.enemies_of(action.actor)
+            elif action.skill.target_kind == TargetKind.SELF:
+                victims.append(action.actor)
+        else:
+            victims.append(action.target)
+
+        for v in victims:
+            if action.skill.kind == "physical":
+                dmg = physical_damage(action.actor, v, action.skill.power)
+                applied = v.take_damage(dmg)
+                events.append(Damage(v, applied, action.actor, action.skill.id))
+            elif action.skill.kind == "magic":
+                dmg = magic_damage(action.skill.power)
+                applied = v.take_damage(dmg)
+                events.append(Damage(v, applied, action.actor, action.skill.id))
+            elif action.skill.kind == "heal":
+                heal = heal_amount(action.skill.power)
+                applied = v.heal(heal)
+                events.append(Heal(v, applied, action.actor))
+            if action.skill.status_template is not None:
+                v.statuses.append(replace(action.skill.status_template))
+                events.append(StatusApplied(v, action.skill.status_template.name))
+        return events
+
+    def _tick_statuses(self, c: Character):
+        events = []
+        statuses_to_keep = []
+        for status in c.statuses:
+            applied = 0
+            if status.hp_per_turn < 0:
+                applied = -c.take_damage(-status.hp_per_turn)
+            elif status.hp_per_turn > 0:
+                applied = c.heal(status.hp_per_turn)
+            if applied:
+                events.append(StatusTick(target=c, amount=applied, status_name=status.name))
+            status.duration -= 1
+            if status.duration > 0:
+                statuses_to_keep.append(status)
+        c.statuses = statuses_to_keep
+        return events
+
+    def is_over(self) -> bool:
+        return (not self.living("player")) or (not self.living("enemy"))
+
+    def winner(self) -> str | None:
+        if not self.living("player"):
+            return "enemy"
+        if not self.living("enemy"):
+            return "player"
+        return None
