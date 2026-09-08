@@ -581,12 +581,10 @@ class BattleState:
         return sorted(living, key=lambda c: (-c.spd, _SIDE_RANK[c.side], c.slot))
 
     def current_actor(self) -> Character:
-        while True:
-            self._queue = [c for c in self._queue if c.alive]
-            if not self._queue:
-                self._queue = self._build_round_queue()
-            if self._queue:
-                return self._queue[0]
+        self._queue = [c for c in self._queue if c.alive]
+        if not self._queue:
+            self._queue = self._build_round_queue()
+        return self._queue[0]
 
     def _advance(self, actor: Character) -> None:
         if self._queue and self._queue[0] is actor:
@@ -597,10 +595,16 @@ class BattleState:
 > `__init__` — you construct a `BattleState` with just parties and an optional
 > `seed`, and `__post_init__` sets `rng` up.
 
-> **Why `current_actor()` is a loop.** After you filter dead characters out of
-> the queue it might be empty; then you rebuild; the rebuilt queue is only empty
-> if the battle is over, which the caller checks separately. The loop handles
-> "filtered to empty, need a rebuild" in one place.
+> **Why `current_actor()` rebuilds lazily.** Two cases: the queue still has
+> living characters (return the first), or it drained this round (rebuild, return
+> the first). One filter, one optional rebuild, done — no loop, because a
+> freshly built queue already contains only living characters, so re-filtering it
+> would change nothing.
+>
+> If *every* character is dead, `self._queue[0]` raises `IndexError`. That's
+> deliberate: callers must check `is_over()` before asking whose turn it is
+> (`step()` and the game loop both do). A broken contract should fail loudly on
+> the next line, not hang.
 
 Now the event dataclasses need exporting so Stage 4's tests can import them.
 Update `battle_core/__init__.py`:

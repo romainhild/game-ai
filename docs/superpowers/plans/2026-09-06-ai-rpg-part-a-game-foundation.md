@@ -709,12 +709,10 @@ class BattleState:
         return sorted(living, key=lambda c: (-c.spd, _SIDE_RANK[c.side], c.slot))
 
     def current_actor(self) -> Character:
-        while True:
-            self._queue = [c for c in self._queue if c.alive]
-            if not self._queue:
-                self._queue = self._build_round_queue()
-            if self._queue:
-                return self._queue[0]
+        self._queue = [c for c in self._queue if c.alive]
+        if not self._queue:
+            self._queue = self._build_round_queue()
+        return self._queue[0]  # IndexError if all dead — callers must check is_over() first
 
     def _advance(self, actor: Character) -> None:
         if self._queue and self._queue[0] is actor:
