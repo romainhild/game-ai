@@ -24,15 +24,15 @@ class Character:
     base_atk: int
     base_def: int
     spd: int
-    hp: int = None
-    mp: int = None
+    hp: int = -1  #  -1 => fill from max_hp
+    mp: int = -1
     statuses: list[StatusEffect] = field(default_factory=list)
     skills: list[str] = field(default_factory=lambda: ["attack"])
 
     def __post_init__(self) -> None:
-        if self.hp is None:
+        if self.hp < 0:
             self.hp = self.max_hp
-        if self.mp is None:
+        if self.mp < 0:
             self.mp = self.max_mp
 
     @property
