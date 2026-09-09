@@ -67,10 +67,15 @@ The `max(0, ...)` floor matters: two stacked -5 debuffs on a base-8 attacker
 give `atk == 0`, never `-2`. Negative attack would invert the damage formula
 later.
 
-**`hp` and `mp` default to their maxima.** You almost always create a
-full-health character; letting them be `None` in the constructor and filling
-them in `__post_init__` keeps call sites short. When you *do* want a
-pre-damaged character (common in tests), you pass `hp=` explicitly.
+**`hp` and `mp` default to their maxima — via `InitVar`.** You almost always
+create a full-health character, so it would be nice to omit `hp`/`mp` and have
+them fill in from `max_hp`/`max_mp`. The naive way (`hp: int | None = None` +
+`__post_init__`) makes a type checker treat `hp` as possibly-`None` at every
+`hp - dmg` for the rest of the file. The fix is to separate the *constructor
+input* from the *stored field*: `start_hp` is an `InitVar` (a pseudo-field that's
+passed to `__post_init__` and then discarded), and `hp` is a real `int` field
+with `init=False` that `__post_init__` sets. A pre-damaged character (for a test)
+is then `Character(..., start_hp=1)`.
 
 **`take_damage` / `heal` return the amount that actually landed.** If a
 character has 6 HP and takes a 999 hit, only 6 HP is removed — and the renderer
@@ -150,7 +155,7 @@ Create `battle_core/entities.py`:
 """Combatants and the transient effects applied to them."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 
 
 @dataclass
@@ -172,15 +177,15 @@ class Character:
     base_atk: int
     base_def: int
     spd: int
-    hp: int | None = None
-    mp: int | None = None
     statuses: list[StatusEffect] = field(default_factory=list)
+    hp: int = field(init=False)      # always an int after construction
+    mp: int = field(init=False)
+    start_hp: InitVar[int | None] = None   # constructor-only; None -> full
+    start_mp: InitVar[int | None] = None
 
-    def __post_init__(self) -> None:
-        if self.hp is None:
-            self.hp = self.max_hp
-        if self.mp is None:
-            self.mp = self.max_mp
+    def __post_init__(self, start_hp: int | None, start_mp: int | None) -> None:
+        self.hp = self.max_hp if start_hp is None else start_hp
+        self.mp = self.max_mp if start_mp is None else start_mp
 
     @property
     def alive(self) -> bool:
@@ -212,6 +217,15 @@ class Character:
 > **Why `field(default_factory=list)` and not `= []`?** A bare `[]` default is
 > shared by *every* instance of the dataclass — a classic Python foot-gun.
 > `default_factory` calls `list()` fresh for each new `Character`.
+
+> **The `InitVar` / `field(init=False)` dance.** `hp` and `mp` are computed from
+> other fields, so they can't have a normal default. `field(init=False)` keeps
+> them out of the generated `__init__` (so no "non-default follows default"
+> error, and callers can't pass a `None`); `__post_init__` sets them. The
+> `InitVar` fields *are* in `__init__` and are handed to `__post_init__` as
+> arguments, but they're never stored and never appear in `__repr__`/`__eq__`.
+> Net effect: `hp`/`mp` are honest `int`s everywhere, and `Character(...)` still
+> works without passing them.
 
 Now export the names. Edit `battle_core/__init__.py`:
 
