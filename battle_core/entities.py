@@ -24,9 +24,10 @@ class Character:
     base_atk: int
     base_def: int
     spd: int
-    hp: int | None = None
-    mp: int | None = None
+    hp: int = None
+    mp: int = None
     statuses: list[StatusEffect] = field(default_factory=list)
+    skills: list[str] = field(default_factory=lambda: ["attack"])
 
     def __post_init__(self) -> None:
         if self.hp is None:

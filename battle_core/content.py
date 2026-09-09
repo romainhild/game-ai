@@ -8,10 +8,26 @@ from battle_core.entities import Character
 def make_default_player_party() -> list[Character]:
     return [
         Character(
-            name="Aria", side="player", slot=0, max_hp=34, max_mp=20, base_atk=9, base_def=5, spd=7
+            name="Aria",
+            side="player",
+            slot=0,
+            max_hp=34,
+            max_mp=20,
+            base_atk=9,
+            base_def=5,
+            spd=7,
+            skills=["attack", "fireball", "heal", "guard"],
         ),
         Character(
-            name="Bran", side="player", slot=1, max_hp=42, max_mp=8, base_atk=11, base_def=7, spd=4
+            name="Bran",
+            side="player",
+            slot=1,
+            max_hp=42,
+            max_mp=8,
+            base_atk=11,
+            base_def=7,
+            spd=4,
+            skills=["attack", "warcry", "guard"],
         ),
     ]
 
@@ -19,7 +35,15 @@ def make_default_player_party() -> list[Character]:
 def make_default_enemy_party(n: int = 2) -> list[Character]:
     roster = [
         Character(
-            name="Goblin", side="enemy", slot=0, max_hp=26, max_mp=6, base_atk=8, base_def=4, spd=6
+            name="Goblin",
+            side="enemy",
+            slot=0,
+            max_hp=26,
+            max_mp=6,
+            base_atk=8,
+            base_def=4,
+            spd=6,
+            skills=["attack", "poison_dart"],
         ),
         Character(
             name="Acolyte",
@@ -30,9 +54,18 @@ def make_default_enemy_party(n: int = 2) -> list[Character]:
             base_atk=6,
             base_def=3,
             spd=5,
+            skills=["attack", "fireball", "heal"],
         ),
         Character(
-            name="Brute", side="enemy", slot=2, max_hp=48, max_mp=4, base_atk=12, base_def=6, spd=3
+            name="Brute",
+            side="enemy",
+            slot=2,
+            max_hp=48,
+            max_mp=4,
+            base_atk=12,
+            base_def=6,
+            spd=3,
+            skills=["attack", "firestorm", "warcry"],
         ),
     ]
     return roster[:n]

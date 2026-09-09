@@ -15,6 +15,11 @@ class Action:
     skill: Skill
     target: Character | None = None
 
+    def __str__(self):
+        return f"{self.actor.name} used {self.skill.name}" + (
+            f" on {self.target.name}" if self.target else ""
+        )
+
 
 @dataclass
 class Damage:
@@ -23,6 +28,9 @@ class Damage:
     source: Character
     skill_id: str
 
+    def __str__(self):
+        return f"{self.amount} damage inflicted on {self.target.name} by {self.source.name} using {self.skill_id}"
+
 
 @dataclass
 class Heal:
@@ -30,11 +38,17 @@ class Heal:
     amount: int
     source: Character
 
+    def __str__(self):
+        return f"{self.amount} healed on {self.target.name} by {self.source.name}"
+
 
 @dataclass
 class StatusApplied:
     target: Character
     status_name: str
+
+    def __str__(self):
+        return f"{self.status_name} applied to {self.target.name}"
 
 
 @dataclass
@@ -43,10 +57,16 @@ class StatusTick:
     amount: int
     status_name: str
 
+    def __str__(self):
+        return f"{self.status_name} ticked for {self.amount} on {self.target.name}"
+
 
 @dataclass
 class Faint:
     target: Character
+
+    def __str__(self):
+        return f"{self.target.name} fainted"
 
 
 Event = Damage | Heal | StatusApplied | StatusTick | Faint
@@ -97,7 +117,10 @@ class BattleState:
 
     def legal_actions(self, actor: Character) -> list[Action]:
         actions = []
-        for skill in (s for s in SKILLS.values() if s.mp_cost <= actor.mp):
+        for skill_id in actor.skills:
+            skill = SKILLS[skill_id]
+            if skill.mp_cost > actor.mp:
+                continue
             if skill.target_kind is TargetKind.ALL_ENEMIES or skill.target_kind is TargetKind.SELF:
                 actions.append(Action(actor=actor, skill=skill, target=None))
             elif skill.target_kind is TargetKind.ONE_ENEMY:
